@@ -181,9 +181,37 @@ GOTO :EOF
 
 :END
 
+@echo off & title Primer GOTO & set "start=%time%"
 
+setlocal enabledelayedexpansion
+set /a "test=3, nthprime=3, limit=10000"
+set "bitmap="
+set "n=Y"
 
+:nextprime
+if %test% gtr %limit% (goto gameover)
+set /a "test+=2, index=0, div=3"
+if %test% lss 1000 (set bitmap=%bitmap%%n%)
 
+:nexttest
+if "!bitmap:~%index%,1!"=="N" goto nextdiv
+set /a "resi=!test!%%!div!"
+if %resi% equ 0 (set "n=N"& goto nextprime)
 
+:nextdiv
+set /a index+=1,div+=2,div2=div*div
+if %div2% gtr %test% (
+ echo %test% is Prime
+ set "n=Y"
+ set /a "total=%nthprime%,nthprime+=1"
+ goto nextprime
+)
 
-:end
+goto nexttest
+
+:gameover
+echo %total% primes up to %limit%
+echo/ start: %start%
+echo finish: %time%
+pause
+exit /b
