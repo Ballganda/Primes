@@ -1,9 +1,16 @@
 @ECHO off & SETLOCAL EnableDelayedExpansion
 
+REM Help /? handling
+IF "%1" EQU "/?" CALL :HELP & EXIT /B
+REM Empty string param handling
+IF "%1" EQU "" (CALL :HELP & EXIT /B)
+
+REM mask the input string in a  variable
 SET "args.banner=%*"
 
-REM Invoke the banner subroutine and pass the args to it
-CALL :BANNERCHAR %args.banner%
+:MAIN
+	REM Invoke the banner subroutine and pass the args to it
+	CALL :BANNERCHAR %args.banner%
 EXIT /B
 
 REM Could write here without REM but its bad practice...
@@ -12,11 +19,11 @@ REM Could write here without REM but its bad practice...
 	Echo   Syntax  
 	Echo       BANNER The string
 	Echo           Where string is the text or numbers to be displayed
-	ECHO               Valid chars 0-9 - . A-Z
+	ECHO               Valid chars 0-9 A-Z -_.,?/:;'\[]{}=
 	ECHO     ^</?^> is the only parameter option and shows this help info 
 EXIT /B
 
-:STRLEN  strVar  [rtnVar]
+:STRLEN  StrVar  [RtnVar]
 	SETLOCAL DisableDelayedExpansion
 	SET _length=0
 	
@@ -27,69 +34,70 @@ EXIT /B
 	ENDLOCAL & IF "%~2" neq "" (SET %~2=%_length%)
 EXIT /B
 
-:BANNERCHAR
-	REM Help /? handling
-	IF "%1" EQU "/?" CALL :HELP & EXIT /B
-	REM Empty string param handling
-	IF [%1] EQU [] (CALL :HELP & EXIT /B)
-	
-	REM nul var and set them
+:BANNERCHAR StrVar
+	REM nul vars and set them
 	REM RESETVARS
-		SET "_1="
-		SET "_2="
-		SET "_3="
-		SET "_4="
-		SET "_5="
-		SET "_6="
-		SET "_7="
-		SET "_digit="
-		SET "_sentence="
-		SET "_substring="
+	SET "_1="
+	SET "_2="
+	SET "_3="
+	SET "_4="
+	SET "_5="
+	SET "_6="
+	SET "_7="
+	SET "_char="
+	SET "_string="
+	SET "_substring="
 	REM set the input string	
-	SET "_sentence=%*"
-	SET "_substring=%_sentence%"
+	SET "_string=%*"
+	SET "_substring=%_string%"
 	
 	CALL :STRLEN _substring _length
+	REM subtract one bc start for loop at 0
 	SET /A _length-=1
 
-      REM Truncate text to fit the window size
-      REM assuming average char is 6 digits wide
-      for /f "tokens=2" %%G in ('mode ^|find "Columns"') do set/a _window=%%G/6
-      IF %_length% GTR %_window% set _length=%_window% 
+	REM Truncate text to fit the window size
+	REM assuming average char is 6 digits wide
+	FOR /f "tokens=2" %%G IN ('mode ^|find "Columns"') DO SET /a _window=%%G/6
+	IF %_length% GTR %_window% SET _length=%_window% 
 
-      REM Step through each digit of the sentence and store in a set of variables
-      FOR /L %%G IN (0,1,%_length%) DO call :s_build %%G
-	  
-		REM Now Echo all the variables
-		ECHO.
-		ECHO.%_1%
-		ECHO.%_2%
-		ECHO.%_3%
-		ECHO.%_4%
-		ECHO.%_5%
-		ECHO.%_6%
-		ECHO.%_7%
-		REM ECHO.
-   EXIT /B
+	REM Step through each digit of the sentence and store in a set of variables
+	FOR /L %%G IN (0,1,%_length%) DO CALL :s_build %%G
+	
+	REM Now Echo all the variables
+	ECHO.
+	ECHO.%_1%
+	ECHO.%_2%
+	ECHO.%_3%
+	ECHO.%_4%
+	ECHO.%_5%
+	ECHO.%_6%
+	ECHO.%_7%
+EXIT /B
 
    :s_build
       REM get the next character
-      CALL SET _digit=%%_sentence:~%1,1%%%
-      REM Add the graphics for this digit to the variables
-      IF "%_digit%"==" " (CALL :s_space)
-	  REM ELSE (CALL :s_%_digit%)
-	  FINDSTR /i /r /c:"^[ ]*:s_%_digit%\>" "%~f0" >nul 2>nul && CALL :s_%_digit%
+      CALL SET _char=%%_string:~%1,1%%%
+      REM Add the graphics for this character to the variables
+	  REM digits that need special handling
+      IF "%_char%"==" " (CALL :s_space)
+	  IF "%_char%"=="\" (CALL :s_backslash)
+	  IF "%_char%"=="," (CALL :s_comma)
+	  IF "%_char%"==":" (CALL :s_colon)
+	  IF "%_char%"==";" (CALL :s_semicolon)
+	  IF "%_char%"=="=" (CALL :s_equal)
+	  REM Add gfx for rest of the digits if the label exist else its skipped
+	  FINDSTR /irc:"^[ ]*:s_!_char!\>" "%~f0" >nul  2>nul && CALL :s_%_char%
    EXIT /B
    
    REM  Pad digits to -->
    :s_0
-      (SET _1=%_1% ####)
+      (SET _1=%_1%  ## )
       (SET _2=%_2% #  #)
       (SET _3=%_3% #  #)
-      (SET _4=%_4% #  #)
-      (SET _5=%_5% #  #)
+      (SET _4=%_4% # ##)
+      (SET _5=%_5% ## #)
       (SET _6=%_6% #  #)
-      (SET _7=%_7% ####)
+      (SET _7=%_7%  ## )
    EXIT /B
    
    :s_1
@@ -213,26 +221,59 @@ EXIT /B
       (SET _7=%_7%  #  )
    EXIT /B
    
+   :s_comma
+   REM  Pad digits to -->
+      (SET _1=%_1%     )
+      (SET _2=%_2%     )
+      (SET _3=%_3%     )
+      (SET _4=%_4%     )
+      (SET _5=%_5%     )
+      (SET _6=%_6%  #  )
+      (SET _7=%_7% #   )
+   EXIT /B
+   
    REM  Pad digits to -->
    :s_[
-      (SET _1=%_1% ##  )
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4% #   )
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #   )
-      (SET _7=%_7% ##  )
+      (SET _1=%_1% ## )
+      (SET _2=%_2% #  )
+      (SET _3=%_3% #  )
+      (SET _4=%_4% #  )
+      (SET _5=%_5% #  )
+      (SET _6=%_6% #  )
+      (SET _7=%_7% ## )
    EXIT /B
    
    REM  Pad digits to -->
    :s_]
-      (SET _1=%_1%   ##)
-      (SET _2=%_2%    #)
-      (SET _3=%_3%    #)
+      (SET _1=%_1%  ##)
+      (SET _2=%_2%   #)
+      (SET _3=%_3%   #)
+      (SET _4=%_4%   #)
+      (SET _5=%_5%   #)
+      (SET _6=%_6%   #)
+      (SET _7=%_7%  ##)
+   EXIT /B
+   
+   REM  Pad digits to -->
+   :s_{
+      (SET _1=%_1%   # )
+      (SET _2=%_2%  #  )
+      (SET _3=%_3%  #  )
+      (SET _4=%_4% #   )
+      (SET _5=%_5%  #  )
+      (SET _6=%_6%  #  )
+      (SET _7=%_7%   # )
+   EXIT /B
+   
+   REM  Pad digits to -->
+   :s_}
+      (SET _1=%_1%  #  )
+      (SET _2=%_2%   # )
+      (SET _3=%_3%   # )
       (SET _4=%_4%    #)
-      (SET _5=%_5%    #)
-      (SET _6=%_6%    #)
-      (SET _7=%_7%   ##)
+      (SET _5=%_5%   # )
+      (SET _6=%_6%   # )
+      (SET _7=%_7%  #  )
    EXIT /B
     
    REM  Pad digits to -->
@@ -247,7 +288,7 @@ EXIT /B
    EXIT /B
    
    REM  Pad digits to -->
-   :s_\
+   :s_backslash
       (SET _1=%_1% #   )
       (SET _2=%_2%     )
       (SET _3=%_3%  #  )
@@ -257,8 +298,85 @@ EXIT /B
       (SET _7=%_7%    #)
    EXIT /B
    
+   :s__
    REM  Pad digits to -->
-   :s_^
+      (SET _1=%_1%     )
+      (SET _2=%_2%     )
+      (SET _3=%_3%     )
+      (SET _4=%_4%     )
+      (SET _5=%_5%     )
+      (SET _6=%_6%     )
+      (SET _7=%_7% ####)
+   EXIT /B
+   
+   :s_?
+   REM  Pad digits to -->
+      (SET _1=%_1% ####)
+      (SET _2=%_2% #  #)
+      (SET _3=%_3%    #)
+      (SET _4=%_4%  ###)
+      (SET _5=%_5%  #  )
+      (SET _6=%_6%     )
+      (SET _7=%_7%  #  )
+   EXIT /B
+   
+   :s_exclamation
+   REM  Pad digits to -->
+      (SET _1=%_1%  # )
+      (SET _2=%_2%  # )
+      (SET _3=%_3%  # )
+      (SET _4=%_4%  # )
+      (SET _5=%_5%  # )
+      (SET _6=%_6%    )
+      (SET _7=%_7%  # )
+   EXIT /B
+   
+   :s_colon
+   REM  Pad digits to -->
+      (SET _1=%_1%     )
+      (SET _2=%_2%  ## )
+      (SET _3=%_3%  ## )
+      (SET _4=%_4%     )
+      (SET _5=%_5%  ## )
+      (SET _6=%_6%  ## )
+      (SET _7=%_7%     )
+   EXIT /B
+   
+   :s_semicolon
+   REM  Pad digits to -->
+      (SET _1=%_1%     )
+      (SET _2=%_2%     )
+      (SET _3=%_3%  ## )
+      (SET _4=%_4%  ## )
+      (SET _5=%_5%     )
+      (SET _6=%_6%   # )
+      (SET _7=%_7%  #  )
+   EXIT /B
+   
+   :s_equal
+   REM  Pad digits to -->
+      (SET _1=%_1%      )
+      (SET _2=%_2%      )
+      (SET _3=%_3% #### )
+      (SET _4=%_4%      )
+      (SET _5=%_5% #### )
+      (SET _6=%_6%      )
+      (SET _7=%_7%      )
+   EXIT /B
+   
+   REM  Pad digits to -->
+   :s_'
+      (SET _1=%_1%  #)
+      (SET _2=%_2% # )
+      (SET _3=%_3%   )
+      (SET _4=%_4%   )
+      (SET _5=%_5%   )
+      (SET _6=%_6%   )
+      (SET _7=%_7%   )
+   EXIT /B
+   
+   REM  Pad digits to -->
+   :s_up
       (SET _1=%_1%  #  )
       (SET _2=%_2% # # )
       (SET _3=%_3%     )
@@ -269,9 +387,9 @@ EXIT /B
    EXIT /B
    
    REM  Pad digits to -->
-   :s_"
+   :s_quote
       (SET _1=%_1%  ## )
-      (SET _2=%_2%     )
+      (SET _2=%_2% ##  )
       (SET _3=%_3%     )
       (SET _4=%_4%     )
       (SET _5=%_5%     )
