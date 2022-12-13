@@ -1,51 +1,57 @@
 @ECHO off & SETLOCAL EnableDelayedExpansion
 
-REM Help /? handling
-IF "%1" EQU "/?" CALL :HELP & EXIT /B
-
 SET "args.banner=%*"
 
 REM Invoke the banner subroutine and pass the args to it
-rem CALL :BANNERCHAR %args.banner%
-rem CALL :BANNERCHAR ...please...
-CALL :BANNERCHAR ...stand.
-CALL :BANNERCHAR .....by.
+CALL :BANNERCHAR %args.banner%
 EXIT /B
 
 REM Could write here without REM but its bad practice...
 
-I guess!
+:HELP
+	Echo   Syntax  
+	Echo       BANNER The string
+	Echo           Where string is the text or numbers to be displayed
+	ECHO               Valid chars 0-9 - . A-Z
+	ECHO     ^</?^> is the only parameter option and shows this help info 
+EXIT /B
+
+:STRLEN  strVar  [rtnVar]
+	SETLOCAL DisableDelayedExpansion
+	SET _length=0
+	
+	IF DEFINED %~1 FOR /f "delims=:" %%N in (
+		  '"(cmd /v:on /c echo(!%~1!&echo()|findstr /o ^^"'
+		) DO SET /a "_length=%%N-3"
+		
+	ENDLOCAL & IF "%~2" neq "" (SET %~2=%_length%)
+EXIT /B
 
 :BANNERCHAR
-IF [%1] EQU [] (
-	:HELP
-		Echo   Syntax  
-		Echo       BANNER string
-		Echo           Where string is the text or numbers to be displayed
-		ECHO               Valid chars 0-9 - . A-Z
-		ECHO     ^</?^> is the only parameter option and shows this help info 
-	EXIT /B
-	)
+	REM Help /? handling
+	IF "%1" EQU "/?" CALL :HELP & EXIT /B
+	REM Empty string param handling
+	IF [%1] EQU [] (CALL :HELP & EXIT /B)
 	
-	SET "_sentence="
-	SET "_substring="
-	SET _sentence=%1
-	SET _substring=%_sentence%
+	REM nul var and set them
+	REM RESETVARS
+		SET "_1="
+		SET "_2="
+		SET "_3="
+		SET "_4="
+		SET "_5="
+		SET "_6="
+		SET "_7="
+		SET "_digit="
+		SET "_sentence="
+		SET "_substring="
+	REM set the input string	
+	SET "_sentence=%*"
+	SET "_substring=%_sentence%"
 	
 	CALL :STRLEN _substring _length
-	IF 1 NEQ 1 (
-	:STRLEN  strVar  [rtnVar]
-	set len=0
-	if defined %1 for /f "delims=:" %%N in (
-	  '"(cmd /v:on /c echo(!%1!&echo()|findstr /o ^^"'
-	) do set /a "len=%%N-3"
-	if "%2" neq "" (set %2=%len%) else echo %len%
-	exit /b
-	)
-	
-	REM adjust length to 1 less that strlen
 	SET /A _length-=1
-	
+
       REM Truncate text to fit the window size
       REM assuming average char is 6 digits wide
       for /f "tokens=2" %%G in ('mode ^|find "Columns"') do set/a _window=%%G/6
@@ -70,7 +76,9 @@ IF [%1] EQU [] (
       REM get the next character
       CALL SET _digit=%%_sentence:~%1,1%%%
       REM Add the graphics for this digit to the variables
-      IF "%_digit%"==" " (CALL :s_space) ELSE (CALL :s_%_digit%)
+      IF "%_digit%"==" " (CALL :s_space)
+	  REM ELSE (CALL :s_%_digit%)
+	  FINDSTR /i /r /c:"^[ ]*:s_%_digit%\>" "%~f0" >nul 2>nul && CALL :s_%_digit%
    EXIT /B
    
    REM  Pad digits to -->
@@ -203,6 +211,72 @@ IF [%1] EQU [] (
       (SET _5=%_5%     )
       (SET _6=%_6%     )
       (SET _7=%_7%  #  )
+   EXIT /B
+   
+   REM  Pad digits to -->
+   :s_[
+      (SET _1=%_1% ##  )
+      (SET _2=%_2% #   )
+      (SET _3=%_3% #   )
+      (SET _4=%_4% #   )
+      (SET _5=%_5% #   )
+      (SET _6=%_6% #   )
+      (SET _7=%_7% ##  )
+   EXIT /B
+   
+   REM  Pad digits to -->
+   :s_]
+      (SET _1=%_1%   ##)
+      (SET _2=%_2%    #)
+      (SET _3=%_3%    #)
+      (SET _4=%_4%    #)
+      (SET _5=%_5%    #)
+      (SET _6=%_6%    #)
+      (SET _7=%_7%   ##)
+   EXIT /B
+    
+   REM  Pad digits to -->
+   :s_/
+      (SET _1=%_1%    #)
+      (SET _2=%_2%     )
+      (SET _3=%_3%   # )
+      (SET _4=%_4%     )
+      (SET _5=%_5%  #  )
+      (SET _6=%_6%     )
+      (SET _7=%_7% #   )
+   EXIT /B
+   
+   REM  Pad digits to -->
+   :s_\
+      (SET _1=%_1% #   )
+      (SET _2=%_2%     )
+      (SET _3=%_3%  #  )
+      (SET _4=%_4%     )
+      (SET _5=%_5%   # )
+      (SET _6=%_6%     )
+      (SET _7=%_7%    #)
+   EXIT /B
+   
+   REM  Pad digits to -->
+   :s_^
+      (SET _1=%_1%  #  )
+      (SET _2=%_2% # # )
+      (SET _3=%_3%     )
+      (SET _4=%_4%     )
+      (SET _5=%_5%     )
+      (SET _6=%_6%     )
+      (SET _7=%_7%     )
+   EXIT /B
+   
+   REM  Pad digits to -->
+   :s_"
+      (SET _1=%_1%  ## )
+      (SET _2=%_2%     )
+      (SET _3=%_3%     )
+      (SET _4=%_4%     )
+      (SET _5=%_5%     )
+      (SET _6=%_6%     )
+      (SET _7=%_7%     )
    EXIT /B
    
    :s_a
