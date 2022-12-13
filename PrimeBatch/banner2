@@ -13,25 +13,13 @@ SET "args.banner=%*"
 	CALL :BANNERCHAR %args.banner%
 EXIT /B
 
-REM Could write here without REM but its bad practice...
-
 :HELP
 	Echo   Syntax  
 	Echo       BANNER The string
 	Echo           Where string is the text or numbers to be displayed
 	ECHO               Valid chars 0-9 A-Z -_.,?/:;'\[]{}=
 	ECHO     ^</?^> is the only parameter option and shows this help info 
-EXIT /B
-
-:STRLEN  StrVar  [RtnVar]
-	SETLOCAL DisableDelayedExpansion
-	SET _length=0
-	
-	IF DEFINED %~1 FOR /f "delims=:" %%N in (
-		  '"(cmd /v:on /c echo(!%~1!&echo()|findstr /o ^^"'
-		) DO SET /a "_length=%%N-3"
-		
-	ENDLOCAL & IF "%~2" neq "" (SET %~2=%_length%)
+	ECHO  Bugs happen when using some combinations of non 0-9 A-Z chars
 EXIT /B
 
 :BANNERCHAR StrVar
@@ -51,6 +39,7 @@ EXIT /B
 	SET "_string=%*"
 	SET "_substring=%_string%"
 	
+	REM invoke the string length subroutine sent substring and return length
 	CALL :STRLEN _substring _length
 	REM subtract one bc start for loop at 0
 	SET /A _length-=1
@@ -64,7 +53,6 @@ EXIT /B
 	FOR /L %%G IN (0,1,%_length%) DO CALL :s_build %%G
 	
 	REM Now Echo all the variables
-	ECHO.
 	ECHO.%_1%
 	ECHO.%_2%
 	ECHO.%_3%
@@ -74,623 +62,637 @@ EXIT /B
 	ECHO.%_7%
 EXIT /B
 
-   :s_build
-      REM get the next character
-      CALL SET _char=%%_string:~%1,1%%%
-      REM Add the graphics for this character to the variables
-	  REM digits that need special handling
-      IF "%_char%"==" " (CALL :s_space)
-	  IF "%_char%"=="\" (CALL :s_backslash)
-	  IF "%_char%"=="," (CALL :s_comma)
-	  IF "%_char%"==":" (CALL :s_colon)
-	  IF "%_char%"==";" (CALL :s_semicolon)
-	  IF "%_char%"=="=" (CALL :s_equal)
-	  REM Add gfx for rest of the digits if the label exist else its skipped
-	  FINDSTR /irc:"^[ ]*:s_!_char!\>" "%~f0" >nul  2>nul && CALL :s_%_char%
-   EXIT /B
-   
-   REM  Pad digits to -->
-   :s_0
-      (SET _1=%_1%  ## )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% # ##)
-      (SET _5=%_5% ## #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7%  ## )
-   EXIT /B
-   
-   :s_1
-   REM  Pad digits to -->
-      (SET _1=%_1%  ## )
-      (SET _2=%_2%   # )
-      (SET _3=%_3%   # )
-      (SET _4=%_4%   # )
-      (SET _5=%_5%   # )
-      (SET _6=%_6%   # )
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_2
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3%    #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_3
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2%    #)
-      (SET _3=%_3%    #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5%    #)
-      (SET _6=%_6%    #)
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_4
-   REM  Pad digits to -->
-      (SET _1=%_1% #  #)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5%    #)
-      (SET _6=%_6%    #)
-      (SET _7=%_7%    #)
-   EXIT /B
-   
-   :s_5
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4% ####)
-      (SET _5=%_5%    #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_6
-   REM  Pad digits to -->
-      (SET _1=%_1% ##  )
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4% ####)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_7
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3%    #)
-      (SET _4=%_4%   ##)
-      (SET _5=%_5%   # )
-      (SET _6=%_6%   # )
-      (SET _7=%_7%   # )
-   EXIT /B
-   
-   :s_8
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_9
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5%    #)
-      (SET _6=%_6%    #)
-      (SET _7=%_7%    #)
-   EXIT /B
-   
-   :s_-
-   REM  Pad digits to -->
-      (SET _1=%_1%     )
-      (SET _2=%_2%     )
-      (SET _3=%_3%     )
-      (SET _4=%_4% ####)
-      (SET _5=%_5%     )
-      (SET _6=%_6%     )
-      (SET _7=%_7%     )
-   EXIT /B
-   
-   :s_.
-   REM  Pad digits to -->
-      (SET _1=%_1%     )
-      (SET _2=%_2%     )
-      (SET _3=%_3%     )
-      (SET _4=%_4%     )
-      (SET _5=%_5%     )
-      (SET _6=%_6%     )
-      (SET _7=%_7%  #  )
-   EXIT /B
-   
-   :s_comma
-   REM  Pad digits to -->
-      (SET _1=%_1%     )
-      (SET _2=%_2%     )
-      (SET _3=%_3%     )
-      (SET _4=%_4%     )
-      (SET _5=%_5%     )
-      (SET _6=%_6%  #  )
-      (SET _7=%_7% #   )
-   EXIT /B
-   
-   REM  Pad digits to -->
-   :s_[
-      (SET _1=%_1% ## )
-      (SET _2=%_2% #  )
-      (SET _3=%_3% #  )
-      (SET _4=%_4% #  )
-      (SET _5=%_5% #  )
-      (SET _6=%_6% #  )
-      (SET _7=%_7% ## )
-   EXIT /B
-   
-   REM  Pad digits to -->
-   :s_]
-      (SET _1=%_1%  ##)
-      (SET _2=%_2%   #)
-      (SET _3=%_3%   #)
-      (SET _4=%_4%   #)
-      (SET _5=%_5%   #)
-      (SET _6=%_6%   #)
-      (SET _7=%_7%  ##)
-   EXIT /B
-   
-   REM  Pad digits to -->
-   :s_{
-      (SET _1=%_1%   # )
-      (SET _2=%_2%  #  )
-      (SET _3=%_3%  #  )
-      (SET _4=%_4% #   )
-      (SET _5=%_5%  #  )
-      (SET _6=%_6%  #  )
-      (SET _7=%_7%   # )
-   EXIT /B
-   
-   REM  Pad digits to -->
-   :s_}
-      (SET _1=%_1%  #  )
-      (SET _2=%_2%   # )
-      (SET _3=%_3%   # )
-      (SET _4=%_4%    #)
-      (SET _5=%_5%   # )
-      (SET _6=%_6%   # )
-      (SET _7=%_7%  #  )
-   EXIT /B
-    
-   REM  Pad digits to -->
-   :s_/
-      (SET _1=%_1%    #)
-      (SET _2=%_2%     )
-      (SET _3=%_3%   # )
-      (SET _4=%_4%     )
-      (SET _5=%_5%  #  )
-      (SET _6=%_6%     )
-      (SET _7=%_7% #   )
-   EXIT /B
-   
-   REM  Pad digits to -->
-   :s_backslash
-      (SET _1=%_1% #   )
-      (SET _2=%_2%     )
-      (SET _3=%_3%  #  )
-      (SET _4=%_4%     )
-      (SET _5=%_5%   # )
-      (SET _6=%_6%     )
-      (SET _7=%_7%    #)
-   EXIT /B
-   
-   :s__
-   REM  Pad digits to -->
-      (SET _1=%_1%     )
-      (SET _2=%_2%     )
-      (SET _3=%_3%     )
-      (SET _4=%_4%     )
-      (SET _5=%_5%     )
-      (SET _6=%_6%     )
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_?
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3%    #)
-      (SET _4=%_4%  ###)
-      (SET _5=%_5%  #  )
-      (SET _6=%_6%     )
-      (SET _7=%_7%  #  )
-   EXIT /B
-   
-   :s_exclamation
-   REM  Pad digits to -->
-      (SET _1=%_1%  # )
-      (SET _2=%_2%  # )
-      (SET _3=%_3%  # )
-      (SET _4=%_4%  # )
-      (SET _5=%_5%  # )
-      (SET _6=%_6%    )
-      (SET _7=%_7%  # )
-   EXIT /B
-   
-   :s_colon
-   REM  Pad digits to -->
-      (SET _1=%_1%     )
-      (SET _2=%_2%  ## )
-      (SET _3=%_3%  ## )
-      (SET _4=%_4%     )
-      (SET _5=%_5%  ## )
-      (SET _6=%_6%  ## )
-      (SET _7=%_7%     )
-   EXIT /B
-   
-   :s_semicolon
-   REM  Pad digits to -->
-      (SET _1=%_1%     )
-      (SET _2=%_2%     )
-      (SET _3=%_3%  ## )
-      (SET _4=%_4%  ## )
-      (SET _5=%_5%     )
-      (SET _6=%_6%   # )
-      (SET _7=%_7%  #  )
-   EXIT /B
-   
-   :s_equal
-   REM  Pad digits to -->
-      (SET _1=%_1%      )
-      (SET _2=%_2%      )
-      (SET _3=%_3% #### )
-      (SET _4=%_4%      )
-      (SET _5=%_5% #### )
-      (SET _6=%_6%      )
-      (SET _7=%_7%      )
-   EXIT /B
-   
-   REM  Pad digits to -->
-   :s_'
-      (SET _1=%_1%  #)
-      (SET _2=%_2% # )
-      (SET _3=%_3%   )
-      (SET _4=%_4%   )
-      (SET _5=%_5%   )
-      (SET _6=%_6%   )
-      (SET _7=%_7%   )
-   EXIT /B
-   
-   REM  Pad digits to -->
-   :s_up
-      (SET _1=%_1%  #  )
-      (SET _2=%_2% # # )
-      (SET _3=%_3%     )
-      (SET _4=%_4%     )
-      (SET _5=%_5%     )
-      (SET _6=%_6%     )
-      (SET _7=%_7%     )
-   EXIT /B
-   
-   REM  Pad digits to -->
-   :s_quote
-      (SET _1=%_1%  ## )
-      (SET _2=%_2% ##  )
-      (SET _3=%_3%     )
-      (SET _4=%_4%     )
-      (SET _5=%_5%     )
-      (SET _6=%_6%     )
-      (SET _7=%_7%     )
-   EXIT /B
-   
-   :s_a
-   REM  Pad digits to -->
-      (SET _1=%_1%  ## )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% #  #)
-   EXIT /B
-   
-   :s_b
-   REM  Pad digits to -->
-      (SET _1=%_1% ### )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ### )
-   EXIT /B
-   
-   :s_c
-   REM  Pad digits to -->
-      (SET _1=%_1%  ## )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #   )
-      (SET _4=%_4% #   )
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #  #)
-      (SET _7=%_7%  ## )
-   EXIT /B
-   
-   :s_d
-   REM  Pad digits to -->
-      (SET _1=%_1% ### )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% #  #)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ### )
-   EXIT /B
-   
-   :s_e
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4% ### )
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #   )
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_f
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4% ### )
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #   )
-      (SET _7=%_7% #   )
-   EXIT /B
+:STRLEN  StrVar  [RtnVar]
+	SETLOCAL DisableDelayedExpansion
+	REM reset the var for length
+	SET _length=0
+	
+	REM use some voodoo to counts the length of a string
+	IF DEFINED %~1 FOR /f "delims=:" %%N in (
+		  '"(cmd /v:on /c echo(!%~1!&echo()|findstr /o ^^"'
+		) DO SET /a "_length=%%N-3"
+		
+	ENDLOCAL & IF "%~2" neq "" (SET %~2=%_length%)
+EXIT /B
 
-   :s_g
-   REM  Pad digits to -->
-      (SET _1=%_1%  ## )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #   )
-      (SET _4=%_4% #   )
-      (SET _5=%_5% # ##)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7%  ## )
-   EXIT /B
+:s_build
+	REM get the next character
+	CALL SET _char=%%_string:~%1,1%%%
+	
+	REM Add the graphics for this character to the variables
+	REM digits that need special handling
+	IF "%_char%"==" " (CALL :s_space)
+	IF "%_char%"=="\" (CALL :s_backslash)
+	IF "%_char%"=="," (CALL :s_comma)
+	IF "%_char%"==":" (CALL :s_colon)
+	IF "%_char%"==";" (CALL :s_semicolon)
+	IF "%_char%"=="=" (CALL :s_equal)
+	
+	REM Add gfx for rest of the digits if the label exist else its skipped
+	FINDSTR /irc:"^[ ]*:s_!_char!\>" "%~f0" >nul  2>nul && CALL :s_%_char%
+EXIT /B
+   
+REM  Pad digits to -->
+:s_0
+  (SET _1=%_1%  ## )
+  (SET _2=%_2% #  #)
+  (SET _3=%_3% #  #)
+  (SET _4=%_4% # ##)
+  (SET _5=%_5% ## #)
+  (SET _6=%_6% #  #)
+  (SET _7=%_7%  ## )
+EXIT /B
 
-   :s_h
-   REM  Pad digits to -->
-      (SET _1=%_1% #  #)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% #  #)
-   EXIT /B
+:s_1
+REM  Pad digits to -->
+  (SET _1=%_1%  ## )
+  (SET _2=%_2%   # )
+  (SET _3=%_3%   # )
+  (SET _4=%_4%   # )
+  (SET _5=%_5%   # )
+  (SET _6=%_6%   # )
+  (SET _7=%_7% ####)
+EXIT /B
 
-   :s_i
-   REM  Pad digits to -->
-      (SET _1=%_1%  # )
-      (SET _2=%_2%  # )
-      (SET _3=%_3%  # )
-      (SET _4=%_4%  # )
-      (SET _5=%_5%  # )
-      (SET _6=%_6%  # )
-      (SET _7=%_7%  # )
-   EXIT /B
+:s_2
+REM  Pad digits to -->
+  (SET _1=%_1% ####)
+  (SET _2=%_2% #  #)
+  (SET _3=%_3%    #)
+  (SET _4=%_4% ####)
+  (SET _5=%_5% #   )
+  (SET _6=%_6% #  #)
+  (SET _7=%_7% ####)
+EXIT /B
 
-   :s_j
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2%   # )
-      (SET _3=%_3%   # )
-      (SET _4=%_4%   # )
-      (SET _5=%_5%   # )
-      (SET _6=%_6%   # )
-      (SET _7=%_7% ##  )
-   EXIT /B
+:s_3
+REM  Pad digits to -->
+  (SET _1=%_1% ####)
+  (SET _2=%_2%    #)
+  (SET _3=%_3%    #)
+  (SET _4=%_4% ####)
+  (SET _5=%_5%    #)
+  (SET _6=%_6%    #)
+  (SET _7=%_7% ####)
+EXIT /B
 
-   :s_k
-   REM  Pad digits to -->
-      (SET _1=%_1% #   )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% # # )
-      (SET _4=%_4% ##  )
-      (SET _5=%_5% ##  )
-      (SET _6=%_6% # # )
-      (SET _7=%_7% #  #)
-   EXIT /B
+:s_4
+REM  Pad digits to -->
+  (SET _1=%_1% #  #)
+  (SET _2=%_2% #  #)
+  (SET _3=%_3% #  #)
+  (SET _4=%_4% ####)
+  (SET _5=%_5%    #)
+  (SET _6=%_6%    #)
+  (SET _7=%_7%    #)
+EXIT /B
 
-   :s_l
-   REM  Pad digits to -->
-      (SET _1=%_1% #   )
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4% #   )
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #   )
-      (SET _7=%_7% ####)
-   EXIT /B
+:s_5
+REM  Pad digits to -->
+  (SET _1=%_1% ####)
+  (SET _2=%_2% #   )
+  (SET _3=%_3% #   )
+  (SET _4=%_4% ####)
+  (SET _5=%_5%    #)
+  (SET _6=%_6% #  #)
+  (SET _7=%_7% ####)
+EXIT /B
 
-   :s_m
-   REM  Pad digits to --->
-      (SET _1=%_1% #   #)
-      (SET _2=%_2% ## ##)
-      (SET _3=%_3% # # #)
-      (SET _4=%_4% # # #)
-      (SET _5=%_5% #   #)
-      (SET _6=%_6% #   #)
-      (SET _7=%_7% #   #)
-   EXIT /B
+:s_6
+REM  Pad digits to -->
+  (SET _1=%_1% ##  )
+  (SET _2=%_2% #   )
+  (SET _3=%_3% #   )
+  (SET _4=%_4% ####)
+  (SET _5=%_5% #  #)
+  (SET _6=%_6% #  #)
+  (SET _7=%_7% ####)
+EXIT /B
 
-   :s_n
-   REM  Pad digits to --->
-      (SET _1=%_1% #   #)
-      (SET _2=%_2% ##  #)
-      (SET _3=%_3% ##  #)
-      (SET _4=%_4% # # #)
-      (SET _5=%_5% #  ##)
-      (SET _6=%_6% #  ##)
-      (SET _7=%_7% #   #)
-   EXIT /B
+:s_7
+REM  Pad digits to -->
+  (SET _1=%_1% ####)
+  (SET _2=%_2% #  #)
+  (SET _3=%_3%    #)
+  (SET _4=%_4%   ##)
+  (SET _5=%_5%   # )
+  (SET _6=%_6%   # )
+  (SET _7=%_7%   # )
+EXIT /B
 
-   :s_o
-   REM  Pad digits to -->
-      (SET _1=%_1%  ## )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% #  #)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7%  ## )
-   EXIT /B
+:s_8
+REM  Pad digits to -->
+  (SET _1=%_1% ####)
+  (SET _2=%_2% #  #)
+  (SET _3=%_3% #  #)
+  (SET _4=%_4% ####)
+  (SET _5=%_5% #  #)
+  (SET _6=%_6% #  #)
+  (SET _7=%_7% ####)
+EXIT /B
 
-   :s_p
-   REM  Pad digits to -->
-      (SET _1=%_1% ### )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ### )
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #   )
-      (SET _7=%_7% #   )
-   EXIT /B
+:s_9
+REM  Pad digits to -->
+  (SET _1=%_1% ####)
+  (SET _2=%_2% #  #)
+  (SET _3=%_3% #  #)
+  (SET _4=%_4% ####)
+  (SET _5=%_5%    #)
+  (SET _6=%_6%    #)
+  (SET _7=%_7%    #)
+EXIT /B
 
-   :s_q
-   REM  Pad digits to -->
-      (SET _1=%_1%  ## )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% #  #)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% # ##)
-      (SET _7=%_7%  # #)
-   EXIT /B
+:s_-
+REM  Pad digits to -->
+  (SET _1=%_1%     )
+  (SET _2=%_2%     )
+  (SET _3=%_3%     )
+  (SET _4=%_4% ####)
+  (SET _5=%_5%     )
+  (SET _6=%_6%     )
+  (SET _7=%_7%     )
+EXIT /B
 
-   :s_r
-   REM  Pad digits to -->
-      (SET _1=%_1% ### )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ### )
-      (SET _5=%_5% # # )
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% #  #)
-   EXIT /B
+:s_.
+REM  Pad digits to -->
+  (SET _1=%_1%     )
+  (SET _2=%_2%     )
+  (SET _3=%_3%     )
+  (SET _4=%_4%     )
+  (SET _5=%_5%     )
+  (SET _6=%_6%     )
+  (SET _7=%_7%  #  )
+EXIT /B
 
-   :s_s
-   REM  Pad digits to -->
-      (SET _1=%_1%  ###)
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4%  ## )
-      (SET _5=%_5%    #)
-      (SET _6=%_6%    #)
-      (SET _7=%_7% ### )
-   EXIT /B
+:s_comma
+REM  Pad digits to -->
+  (SET _1=%_1%     )
+  (SET _2=%_2%     )
+  (SET _3=%_3%     )
+  (SET _4=%_4%     )
+  (SET _5=%_5%     )
+  (SET _6=%_6%  #  )
+  (SET _7=%_7% #   )
+EXIT /B
 
-   :s_t
-   REM  Pad digits to -->
-      (SET _1=%_1% ###)
-      (SET _2=%_2%  # )
-      (SET _3=%_3%  # )
-      (SET _4=%_4%  # )
-      (SET _5=%_5%  # )
-      (SET _6=%_6%  # )
-      (SET _7=%_7%  # )
-   EXIT /B
+REM  Pad digits to -->
+:s_[
+  (SET _1=%_1%  ## )
+  (SET _2=%_2%  #  )
+  (SET _3=%_3%  #  )
+  (SET _4=%_4%  #  )
+  (SET _5=%_5%  #  )
+  (SET _6=%_6%  #  )
+  (SET _7=%_7%  ## )
+EXIT /B
 
-   :s_u
-   REM  Pad digits to -->
-      (SET _1=%_1% #  #)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% #  #)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7%  ## )
-   EXIT /B
+REM  Pad digits to -->
+:s_]
+  (SET _1=%_1%  ## )
+  (SET _2=%_2%   # )
+  (SET _3=%_3%   # )
+  (SET _4=%_4%   # )
+  (SET _5=%_5%   # )
+  (SET _6=%_6%   # )
+  (SET _7=%_7%  ## )
+EXIT /B
 
-   :s_v
-   REM  Pad digits to --->
-      (SET _1=%_1% #   #)
-      (SET _2=%_2% #   #)
-      (SET _3=%_3% #   #)
-      (SET _4=%_4% #   #)
-      (SET _5=%_5% #   #)
-      (SET _6=%_6%  # # )
-      (SET _7=%_7%   #  )
-   EXIT /B
+REM  Pad digits to -->
+:s_{
+  (SET _1=%_1%   # )
+  (SET _2=%_2%  #  )
+  (SET _3=%_3%  #  )
+  (SET _4=%_4% #   )
+  (SET _5=%_5%  #  )
+  (SET _6=%_6%  #  )
+  (SET _7=%_7%   # )
+EXIT /B
 
-   :s_w
-   REM  Pad digits to ----->
-      (SET _1=%_1% #  #  #)
-      (SET _2=%_2% #  #  #)
-      (SET _3=%_3% #  #  #)
-      (SET _4=%_4% #  #  #)
-      (SET _5=%_5% #  #  #)
-      (SET _6=%_6% #  #  #)
-      (SET _7=%_7%  ## ## )
-   EXIT /B
+REM  Pad digits to -->
+:s_}
+  (SET _1=%_1%  #  )
+  (SET _2=%_2%   # )
+  (SET _3=%_3%   # )
+  (SET _4=%_4%    #)
+  (SET _5=%_5%   # )
+  (SET _6=%_6%   # )
+  (SET _7=%_7%  #  )
+EXIT /B
 
-   :s_x
-   REM  Pad digits to -->
-      (SET _1=%_1%      )
-      (SET _2=%_2% #   #)
-      (SET _3=%_3%  # # )
-      (SET _4=%_4%   #  )
-      (SET _5=%_5%   #  )
-      (SET _6=%_6%  # # )
-      (SET _7=%_7% #   #)
-   EXIT /B
+REM  Pad digits to -->
+:s_/
+  (SET _1=%_1%    #)
+  (SET _2=%_2%     )
+  (SET _3=%_3%   # )
+  (SET _4=%_4%     )
+  (SET _5=%_5%  #  )
+  (SET _6=%_6%     )
+  (SET _7=%_7% #   )
+EXIT /B
 
-   :s_y
-   REM  Pad digits to --->
-      (SET _1=%_1% #   #)
-      (SET _2=%_2%  # # )
-      (SET _3=%_3%   #  )
-      (SET _4=%_4%   #  )
-      (SET _5=%_5%   #  )
-      (SET _6=%_6%   #  )
-      (SET _7=%_7%   #  )
-   EXIT /B
+REM  Pad digits to -->
+:s_backslash
+  (SET _1=%_1% #   )
+  (SET _2=%_2%     )
+  (SET _3=%_3%  #  )
+  (SET _4=%_4%     )
+  (SET _5=%_5%   # )
+  (SET _6=%_6%     )
+  (SET _7=%_7%    #)
+EXIT /B
 
-   :s_z
-   REM  Pad digits to --->
-      (SET _1=%_1% #####)
-      (SET _2=%_2%     #)
-      (SET _3=%_3%    # )
-      (SET _4=%_4%   #  )
-      (SET _5=%_5%  #   )
-      (SET _6=%_6% #    )
-      (SET _7=%_7% #####)
-   EXIT /B
+:s__
+REM  Pad digits to -->
+  (SET _1=%_1%     )
+  (SET _2=%_2%     )
+  (SET _3=%_3%     )
+  (SET _4=%_4%     )
+  (SET _5=%_5%     )
+  (SET _6=%_6%     )
+  (SET _7=%_7% ####)
+EXIT /B
 
-   :s_space
-   REM  Pad digits to --->
-      (SET _1=%_1%      )
-      (SET _2=%_2%      )
-      (SET _3=%_3%      )
-      (SET _4=%_4%      )
-      (SET _5=%_5%      )
-      (SET _6=%_6%      )
-      (SET _7=%_7%      )
-   EXIT /B
+:s_?
+REM  Pad digits to -->
+  (SET _1=%_1% ####)
+  (SET _2=%_2% #  #)
+  (SET _3=%_3%    #)
+  (SET _4=%_4%  ###)
+  (SET _5=%_5%  #  )
+  (SET _6=%_6%     )
+  (SET _7=%_7%  #  )
+EXIT /B
+
+:s_exclamation
+REM  Pad digits to -->
+  (SET _1=%_1%  # )
+  (SET _2=%_2%  # )
+  (SET _3=%_3%  # )
+  (SET _4=%_4%  # )
+  (SET _5=%_5%  # )
+  (SET _6=%_6%    )
+  (SET _7=%_7%  # )
+EXIT /B
+
+:s_colon
+REM  Pad digits to -->
+  (SET _1=%_1%     )
+  (SET _2=%_2%  ## )
+  (SET _3=%_3%  ## )
+  (SET _4=%_4%     )
+  (SET _5=%_5%  ## )
+  (SET _6=%_6%  ## )
+  (SET _7=%_7%     )
+EXIT /B
+
+:s_semicolon
+REM  Pad digits to -->
+  (SET _1=%_1%     )
+  (SET _2=%_2%     )
+  (SET _3=%_3%  ## )
+  (SET _4=%_4%  ## )
+  (SET _5=%_5%     )
+  (SET _6=%_6%   # )
+  (SET _7=%_7%  #  )
+EXIT /B
+
+:s_equal
+REM  Pad digits to -->
+  (SET _1=%_1%     )
+  (SET _2=%_2%     )
+  (SET _3=%_3% ####)
+  (SET _4=%_4%     )
+  (SET _5=%_5% ####)
+  (SET _6=%_6%     )
+  (SET _7=%_7%     )
+EXIT /B
+
+REM  Pad digits to -->
+:s_'
+  (SET _1=%_1%   # )
+  (SET _2=%_2%  #  )
+  (SET _3=%_3%     )
+  (SET _4=%_4%     )
+  (SET _5=%_5%     )
+  (SET _6=%_6%     )
+  (SET _7=%_7%     )
+EXIT /B
+
+REM  Pad digits to -->
+:s_up
+  (SET _1=%_1%  #  )
+  (SET _2=%_2% # # )
+  (SET _3=%_3%     )
+  (SET _4=%_4%     )
+  (SET _5=%_5%     )
+  (SET _6=%_6%     )
+  (SET _7=%_7%     )
+EXIT /B
+
+REM  Pad digits to -->
+:s_quote
+  (SET _1=%_1%   ## )
+  (SET _2=%_2%  ##  )
+  (SET _3=%_3%      )
+  (SET _4=%_4%      )
+  (SET _5=%_5%      )
+  (SET _6=%_6%      )
+  (SET _7=%_7%      )
+EXIT /B
+
+:s_a
+REM  Pad digits to -->
+  (SET _1=%_1%  ### )
+  (SET _2=%_2% #   #)
+  (SET _3=%_3% #   #)
+  (SET _4=%_4% #####)
+  (SET _5=%_5% #   #)
+  (SET _6=%_6% #   #)
+  (SET _7=%_7% #   #)
+EXIT /B
+
+:s_b
+REM  Pad digits to -->
+  (SET _1=%_1% #### )
+  (SET _2=%_2% #   #)
+  (SET _3=%_3% #   #)
+  (SET _4=%_4% #### )
+  (SET _5=%_5% #   #)
+  (SET _6=%_6% #   #)
+  (SET _7=%_7% #### )
+EXIT /B
+
+:s_c
+REM  Pad digits to -->
+  (SET _1=%_1%  ### )
+  (SET _2=%_2% #   #)
+  (SET _3=%_3% #    )
+  (SET _4=%_4% #    )
+  (SET _5=%_5% #    )
+  (SET _6=%_6% #   #)
+  (SET _7=%_7%  ### )
+EXIT /B
+
+:s_d
+REM  Pad digits to -->
+  (SET _1=%_1% #### )
+  (SET _2=%_2% #   #)
+  (SET _3=%_3% #   #)
+  (SET _4=%_4% #   #)
+  (SET _5=%_5% #   #)
+  (SET _6=%_6% #   #)
+  (SET _7=%_7% #### )
+EXIT /B
+
+:s_e
+REM  Pad digits to -->
+  (SET _1=%_1% #####)
+  (SET _2=%_2% #    )
+  (SET _3=%_3% #    )
+  (SET _4=%_4% #### )
+  (SET _5=%_5% #    )
+  (SET _6=%_6% #    )
+  (SET _7=%_7% #####)
+EXIT /B
+
+:s_f
+REM  Pad digits to -->
+  (SET _1=%_1% #####)
+  (SET _2=%_2% #    )
+  (SET _3=%_3% #    )
+  (SET _4=%_4% #### )
+  (SET _5=%_5% #    )
+  (SET _6=%_6% #    )
+  (SET _7=%_7% #    )
+EXIT /B
+
+:s_g
+REM  Pad digits to -->
+  (SET _1=%_1%  ### )
+  (SET _2=%_2% #   #)
+  (SET _3=%_3% #    )
+  (SET _4=%_4% #    )
+  (SET _5=%_5% #  ##)
+  (SET _6=%_6% #   #)
+  (SET _7=%_7%  ### )
+EXIT /B
+
+:s_h
+REM  Pad digits to -->
+  (SET _1=%_1% #   #)
+  (SET _2=%_2% #   #)
+  (SET _3=%_3% #   #)
+  (SET _4=%_4% #####)
+  (SET _5=%_5% #   #)
+  (SET _6=%_6% #   #)
+  (SET _7=%_7% #   #)
+EXIT /B
+
+:s_i
+REM  Pad digits to -->
+  (SET _1=%_1%  ### )
+  (SET _2=%_2%   #  )
+  (SET _3=%_3%   #  )
+  (SET _4=%_4%   #  )
+  (SET _5=%_5%   #  )
+  (SET _6=%_6%   #  )
+  (SET _7=%_7%  ### )
+EXIT /B
+
+:s_j
+REM  Pad digits to -->
+  (SET _1=%_1% #####)
+  (SET _2=%_2%   #  )
+  (SET _3=%_3%   #  )
+  (SET _4=%_4%   #  )
+  (SET _5=%_5%   #  )
+  (SET _6=%_6%   #  )
+  (SET _7=%_7% ##   )
+EXIT /B
+
+:s_k
+REM  Pad digits to -->
+  (SET _1=%_1% #   #)
+  (SET _2=%_2% #  # )
+  (SET _3=%_3% # #  )
+  (SET _4=%_4% ##   )
+  (SET _5=%_5% # #  )
+  (SET _6=%_6% #  # )
+  (SET _7=%_7% #   #)
+EXIT /B
+
+:s_l
+REM  Pad digits to -->
+  (SET _1=%_1% #    )
+  (SET _2=%_2% #    )
+  (SET _3=%_3% #    )
+  (SET _4=%_4% #    )
+  (SET _5=%_5% #    )
+  (SET _6=%_6% #    )
+  (SET _7=%_7% #####)
+EXIT /B
+
+:s_m
+REM  Pad digits to --->
+  (SET _1=%_1% #   #)
+  (SET _2=%_2% ## ##)
+  (SET _3=%_3% # # #)
+  (SET _4=%_4% # # #)
+  (SET _5=%_5% #   #)
+  (SET _6=%_6% #   #)
+  (SET _7=%_7% #   #)
+EXIT /B
+
+:s_n
+REM  Pad digits to --->
+  (SET _1=%_1% #   #)
+  (SET _2=%_2% ##  #)
+  (SET _3=%_3% ##  #)
+  (SET _4=%_4% # # #)
+  (SET _5=%_5% #  ##)
+  (SET _6=%_6% #  ##)
+  (SET _7=%_7% #   #)
+EXIT /B
+
+:s_o
+REM  Pad digits to -->
+  (SET _1=%_1%  ### )
+  (SET _2=%_2% #   #)
+  (SET _3=%_3% #   #)
+  (SET _4=%_4% #   #)
+  (SET _5=%_5% #   #)
+  (SET _6=%_6% #   #)
+  (SET _7=%_7%  ### )
+EXIT /B
+
+:s_p
+REM  Pad digits to -->
+  (SET _1=%_1% #### )
+  (SET _2=%_2% #   #)
+  (SET _3=%_3% #   #)
+  (SET _4=%_4% #### )
+  (SET _5=%_5% #    )
+  (SET _6=%_6% #    )
+  (SET _7=%_7% #    )
+EXIT /B
+
+:s_q
+REM  Pad digits to -->
+  (SET _1=%_1%  ### )
+  (SET _2=%_2% #   #)
+  (SET _3=%_3% #   #)
+  (SET _4=%_4% #   #)
+  (SET _5=%_5% #   #)
+  (SET _6=%_6% #  ##)
+  (SET _7=%_7%  ## #)
+EXIT /B
+
+:s_r
+REM  Pad digits to -->
+  (SET _1=%_1% #### )
+  (SET _2=%_2% #   #)
+  (SET _3=%_3% #   #)
+  (SET _4=%_4% #### )
+  (SET _5=%_5% # #  )
+  (SET _6=%_6% #  # )
+  (SET _7=%_7% #   #)
+EXIT /B
+
+:s_s
+REM  Pad digits to -->
+  (SET _1=%_1%  ### )
+  (SET _2=%_2% #    )
+  (SET _3=%_3% #    )
+  (SET _4=%_4%  ##  )
+  (SET _5=%_5%    # )
+  (SET _6=%_6%    # )
+  (SET _7=%_7% ###  )
+EXIT /B
+
+:s_t
+REM  Pad digits to -->
+  (SET _1=%_1% #####)
+  (SET _2=%_2%   #  )
+  (SET _3=%_3%   #  )
+  (SET _4=%_4%   #  )
+  (SET _5=%_5%   #  )
+  (SET _6=%_6%   #  )
+  (SET _7=%_7%   #  )
+EXIT /B
+
+:s_u
+REM  Pad digits to -->
+  (SET _1=%_1% #   #)
+  (SET _2=%_2% #   #)
+  (SET _3=%_3% #   #)
+  (SET _4=%_4% #   #)
+  (SET _5=%_5% #   #)
+  (SET _6=%_6% #   #)
+  (SET _7=%_7%  ### )
+EXIT /B
+
+:s_v
+REM  Pad digits to --->
+  (SET _1=%_1% #   #)
+  (SET _2=%_2% #   #)
+  (SET _3=%_3% #   #)
+  (SET _4=%_4% #   #)
+  (SET _5=%_5% #   #)
+  (SET _6=%_6%  # # )
+  (SET _7=%_7%   #  )
+EXIT /B
+
+:s_w
+REM  Pad digits to ----->
+  (SET _1=%_1% #   #)
+  (SET _2=%_2% # # #)
+  (SET _3=%_3% # # #)
+  (SET _4=%_4% # # #)
+  (SET _5=%_5% # # #)
+  (SET _6=%_6% # # #)
+  (SET _7=%_7%  # # )
+EXIT /B
+
+:s_x
+REM  Pad digits to -->
+  (SET _1=%_1%      )
+  (SET _2=%_2% #   #)
+  (SET _3=%_3%  # # )
+  (SET _4=%_4%   #  )
+  (SET _5=%_5%   #  )
+  (SET _6=%_6%  # # )
+  (SET _7=%_7% #   #)
+EXIT /B
+
+:s_y
+REM  Pad digits to --->
+  (SET _1=%_1% #   #)
+  (SET _2=%_2%  # # )
+  (SET _3=%_3%   #  )
+  (SET _4=%_4%   #  )
+  (SET _5=%_5%   #  )
+  (SET _6=%_6%   #  )
+  (SET _7=%_7%   #  )
+EXIT /B
+
+:s_z
+REM  Pad digits to --->
+  (SET _1=%_1% #####)
+  (SET _2=%_2%     #)
+  (SET _3=%_3%    # )
+  (SET _4=%_4%   #  )
+  (SET _5=%_5%  #   )
+  (SET _6=%_6% #    )
+  (SET _7=%_7% #####)
+EXIT /B
+
+:s_space
+REM  Pad digits to --->
+  (SET _1=%_1%      )
+  (SET _2=%_2%      )
+  (SET _3=%_3%      )
+  (SET _4=%_4%      )
+  (SET _5=%_5%      )
+  (SET _6=%_6%      )
+  (SET _7=%_7%      )
 EXIT /B
