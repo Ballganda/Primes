@@ -246,3 +246,272 @@ echo/ start: %start%
 echo finish: %time%
 pause
 exit /b
+
+#include <sourcemod>
+#include <sdktools>
+//#include <cstrike>
+
+#pragma semicolon 1
+#pragma newdecls required
+
+#define NAME "[CS:S]sm_user User Information"
+#define AUTHOR "BallGanda"
+#define DESCRIPTION "Admin get information on user/s in server"
+#define PLUGIN_VERSION "0.0.b1"
+#define URL "http://www.sourcemod.net/"
+
+public Plugin PluginAbout = {
+	name = NAME,
+	author = AUTHOR,
+	description = DESCRIPTION,
+	version = PLUGIN_VERSION,
+	url = URL
+}
+
+//Global Variables needed before OnPluginStart
+char saServerRateCvars[][][] = {
+	{"sv_maxrate","FindConVar(sv_maxrate)"},
+	{"sv_minrate","FindConVar(sv_minrate)"},
+	{"sv_maxcmdrate","FindConVar(sv_maxcmdrate)"},
+	{"sv_mincmdrate","FindConVar(sv_mincmdrate)"},
+	{"sv_client_cmdrate_difference","FindConVar(sv_client_cmdrate_difference)"},
+	{"sv_maxupdaterate","FindConVar(sv_maxupdaterate)"},
+	{"sv_minupdaterate","FindConVar(sv_minupdaterate)"},
+	{"sv_client_min_interp_ratio","FindConVar(sv_client_min_interp_ratio)"},
+	{"sv_client_max_interp_ratio","FindConVar(sv_client_max_interp_ratio)"},
+	{"sv_competitive_minspec","FindConVar(sv_competitive_minspec)"},
+	{"net_splitpacket_maxrate","FindConVar(net_splitpacket_maxrate)"}	
+}
+
+int iSize_ServerRateCvars = sizeof(Server_Cvars);
+
+//ConVar setup
+//ConVar g_cvUserEnabled = null;
+//ConVar g_cvMyInfoEnable = null;
+
+public void OnPluginStart() {
+	if (GetEngineVersion() != Engine_CSS) {
+		SetFailState("CS:S not detected");
+		return;
+	}
+	
+	RegAdminCmd("sm_user", smUser, ADMFLAG_BAN, "sm_user <empty|name|#userid>");
+	
+	RegConsoleCmd("sm_myinfo", smMyInfo);
+	
+	CreateConVar("sm_user_version", PLUGIN_VERSION, NAME, FCVAR_DONTRECORD|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
+	//g_cvUserEnabled = CreateConVar("sm_user_enable", "1", "Enable sm_user <1|0>");
+	//g_cvMyInfoEnable = CreateConVar("sm_myinfo_Enable", "1", "Enable sm_myinfo <1|0>");
+	
+	//will create a file cfg/sourcemod/sm_user.cfg
+	AutoExecConfig(true, "sm_user");
+	
+	bGeoIP = LibraryExists("GeoIP");
+}
+
+public Action smUser(int client, int args) {
+	char h_barsingle[] = "--------------------------------------------------------------------------------";
+	char h_barsingleshort[] = "                         -------------------------------------------------------";
+	char h_bardouble[] = "================================================================================";
+	char h_client_name[] = "Name";
+	char h_rate[] = "Rate";
+	char h_update[] = "Update Packets<in>";
+	char h_cmd[] = "CMD Packets<out>";
+	char h_KBin[] = "KB/s<in>";
+	char h_KBout[] = "KB/s<out>";
+	char h_pingin[] = "Ping ms<in>";
+	char h_pingout[] = "Ping ms<out>";
+	
+	PrintToConsole(client, "%s", h_bardouble);
+	PrintToConsole(client, "| %-25.25s | %-15.15s | %-10.10s | %-10.10s | %-10.10s | %-10.10s | %-10.10s | %-10.10s |",
+							h_client_name,
+							h_rate,
+							h_update,
+							h_cmd,
+							h_KBin,
+							h_KBout,
+							h_pingin,
+							h_pingout);
+	PrintToConsole(client, "%s", h_bardouble);
+
+	for(int i = 1; i <= MaxClients; i++)
+	{
+		if(!IsClientInGame(i) || IsFakeClient(i)) continue;
+
+		Format(buffer, 20, "%N", i);
+
+		Format(buffer, sizeof(buffer), "%20s %-10i %-6.0f %-6.0f %-10.2f %-10.2f %-13.0f %0.0f",
+										buffer,
+										GetClientDataRate(i),
+										GetClientAvgPackets(i, NetFlow_Outgoing),
+										GetClientAvgPackets(i, NetFlow_Incoming),
+										GetClientAvgData(i, NetFlow_Outgoing)/1000.0,
+										GetClientAvgData(i, NetFlow_Incoming)/1000.0,
+										GetClientAvgLatency(i, NetFlow_Outgoing)*1000.0,
+										GetClientAvgLatency(i, NetFlow_Incoming)*1000.0);
+		PrintToConsole(client, buffer);
+	}
+	return Plugin_Handled;
+}
+
+GetClientAuthId instead of GetClientAuthString
+|| !IsFakeClient(i)
+COMMAND_FILTER_NO_BOTS
+iUserid = GetClientOfUserId(i)
+GetClientName(iUserid, Name, sizeof(Name));
+GetClientAuthString(iUserid, ID1, 50)
+
+PrintToConsole(client,"Name Rate UpdateRate CmdRate Interp")
+	
+	for (new i=1; i<=MaxClients;i++)
+	{
+		if (!IsClientInGame(i)) {
+			continue;
+		}
+		GetClientAuthString(i, tmp_steamid, 21);
+		GetClientName(i, name, 31)
+		GetClientInfo(i, "cl_interp", interp, 9)
+		GetClientInfo(i, "cl_updaterate", update, 9)
+		GetClientInfo(i, "cl_cmdrate",cmd, 9)
+		GetClientInfo(i, "rate", rate, 9)
+		PrintToConsole(client,"%s %s %s %s %s",name,rate,update,cmd,interp)
+		
+	}
+	
+	for (new i=1; i<=MaxClients; i++)
+		{
+			if (!IsClientInGame(i))
+			{
+				continue;
+			}
+			id = GetUserAdmin(i);
+			
+			if (id != INVALID_ADMIN_ID)
+			{
+				Format(tmp_admin, sizeof(tmp_admin), "%s", "A");
+			}
+			
+		
+			GetClientAuthString(i, tmp_steamid, 21);		
+			GetClientName(i, tmp_name, 35);
+			GetClientInfo(i, "cl_updaterate", tmp_update, 9);
+			GetClientInfo(i, "cl_cmdrate",tmp_cmd, 9);
+			GetClientInfo(i, "rate", tmp_rate, 9);
+			GetClientIP(i, tmp_ip, 17);
+			
+			PrintToConsole(client, "| %1.1s | %-5.5s | %-6.6s | %-3.3s | %-15.15s |%-20.20s | %-32.32s |", tmp_admin, tmp_rate, tmp_update, tmp_cmd, tmp_ip, tmp_steamid, tmp_name);
+		
+		}
+		
+		// Status Client (Admin or player) */
+    if(GetUserFlagBits(target) & (ADMFLAG_BAN|ADMFLAG_ROOT)) /* Client Admin */
+	
+	!GetClientAuthId(target, AuthId_Steam2, szAuth, sizeof(szAuth))
+	GetClientIP(target, szPlayerIP, sizeof(szPlayerIP))
+	PrepareTime(szConnectTime, sizeof(szConnectTime), RoundToFloor(GetClientTime(target)));
+	(GeoipGetRecord(szPlayerIP, szCity, szRegion, szCountry, szCountryCode, szCountryCode3))
+	
+	int PrepareTime(char[] buff, int buffLength, int iTime) {
+    int iMinute =   iTime/60; 
+    int iHour   =   (iTime-(iMinute*60))/60;
+    int iSecond =   iTime-((iHour*3600)+iMinute*60);
+    
+    return FormatEx(buff, buffLength, "%d:%d:%d", iHour, iMinute, iSecond);
+}
+
+void RenderPlayerProfile(int iClient, int target) 
+{
+    char szBuffer[64];
+    if (GetClientAuthId(target, AuthId_SteamID64, szBuffer, sizeof(szBuffer))) 
+    {
+        Format(szBuffer, sizeof(szBuffer), "https://steamcommunity.com/profiles/%s/", szBuffer);
+        
+        ShowMOTDPanel(iClient, "Steam Profile", szBuffer, MOTDPANEL_TYPE_URL);
+    }
+}
+
+GetClientIP(target, IP, 32);
+Format(IP, 32, "IP Address: %s.", IP);
+GetClientAuthString(target, SteamID, 32);
+Format(SteamID, 32, "SteamID: %s.", SteamID);
+
+	if(gB_Basecomm)
+	{
+		Format(Muted, 128, "Muted: %s.", BaseComm_IsClientMuted(target)? "Yes":"No");
+		Format(Gagged, 128, "Gagged: %s.", BaseComm_IsClientGagged(target)? "Yes":"No");
+	}
+	
+	Format(UserID, 16, "UserID: #%d.", GetClientUserId(target));
+	Format(Name, MAX_NAME_LENGTH+6, "Name: %N.", target);
+	Format(Connected, 32, "Connected: %d minutes.", RoundToFloor(GetClientTime(target) / 60));
+
+public Action:OnPInfo(client, args)
+{
+	if (args < 1)
+	{
+		ReplyToCommand(client, "\x05[Player Information]\04 <Target Name | #userid >");
+		return Plugin_Handled;
+	}
+		
+	decl String:sArg[128], String:sGeoIP[64], String:sIP[17], String:sSteamID[54], String:sTargetName[MAXPLAYERS+1];
+	decl target_list[MAXPLAYERS+1];
+	decl bool:target_ml;
+	
+	GetCmdArgString(sArg, sizeof(sArg));
+	
+	new ListSize = ProcessTargetString(sArg, client, target_list, MAXPLAYERS, COMMAND_FILTER_NO_BOTS, sTargetName, sizeof(sTargetName), target_ml);
+	if (ListSize > 0)
+	{
+		new target;
+		ReplyToCommand(client, "\x05[Player Information]");
+		for (new i = 0; i < ListSize; i++)
+		{
+			target = target_list[i];
+			
+			if (!GetClientIP(target, sIP, sizeof(sIP))) // This trap should never work...
+			{
+				continue;
+			}
+			
+			switch (GeoipCountry(sIP, sGeoIP, sizeof(sGeoIP)))
+			{
+				case 0:
+				{
+					switch (GetClientAuthString(target, sSteamID, sizeof(sSteamID)))
+					{
+						case 0:
+						{
+							ReplyToCommand(client, "\x04Name: \x05%N\x04\nIP Address: \x05%s", target, sIP);
+						}
+						
+						case 1:
+						{
+							ReplyToCommand(client, "\x04Name: \x05%N\x04\nIP Address: \x05%s\x04\nSteam ID: \x05%s\x04\nConnection Time: \x05%d Minutes.", target, sIP, sSteamID, (RoundToFloor(GetClientTime(target_list[i])) / 60));
+						}
+					}
+				}
+				
+				case 1:
+				{
+					switch (GetClientAuthString(target, sSteamID, sizeof(sSteamID)))
+					{
+						case 0:
+						{
+							ReplyToCommand(client, "\x04Name: \x05%N\x04\nCountry: \x05%s\x04\nIP Address: \x05%s", target, sGeoIP, sIP);
+						}
+						
+						case 1:
+						{
+							ReplyToCommand(client, "\x04Name: \x05%N\x04\nCountry: \x05%s\x04\nIP Address: \x05%s\x04\nSteam ID: \x05%s\x04\nConnection Time: \x05%d Minutes.", target, sGeoIP, sIP, sSteamID, (RoundToFloor(GetClientTime(target_list[i])) / 60));
+						}
+					}
+				}
+			}
+		}
+		return Plugin_Handled;
+	}
+	ReplyToCommand(client, "\x05[PlayerInfo]\x04 Couldn't find %s.", sArg);
+	return Plugin_Handled;
+}
+	
+	
