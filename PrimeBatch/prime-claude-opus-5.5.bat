@@ -1,610 +1,164 @@
 @ECHO off & SETLOCAL EnableDelayedExpansion
 
-CALL :MAIN
+REM Empty the inherited environment (restored on exit): every variable lookup
+REM in cmd scans the whole environment, so fewer variables means a faster sieve.
+FOR /F "delims==" %%V IN ('SET') DO SET "%%V="
+CALL :MAIN %1
 EXIT /B
 
 :MAIN
-CALL :WINDOWSETTINGS
-CALL :SETINPUT %1
-SET TIMESTART=%TIME%
-CALL :FLOORINTSQRT %NMAX%
-CALL :SIEVE
-REM CALL :LISTPRIMES
-REM CALL :COUNTPRIMES
-SET TIMEFINISH=%TIME%
-CALL :CONVERTTIMESECONDS TIMESTART TIMESTARTSEC
-CALL :CONVERTTIMESECONDS TIMEFINISH TIMEFINISHSEC
-CALL :GETELAPSED
-EXIT /B
+	CALL :SETINPUT %1
+	SET "PASSES=0"
+	SET "ALLVALID=true"
+	CALL :GETTIME_CS TIMESTART
 
-:WINDOWSETTINGS
-	CLS
-	color 02
-	TITLE NoFocusEngineer
+	REM Each pass: instantiate, runSieve, query, destroy.
+	REM SETLOCAL/ENDLOCAL is the stand-in for a class instance; every
+	REM sieve_*, w* and t variable exists only between the two and is freed
+	REM by ENDLOCAL.
+	REM Always completes at least one pass, then repeats until 5 seconds.
+	REM Progress (one dot per pass) goes to stderr so stdout holds only results.
+:BENCHMARK_LOOP
+	SET /A PASSES+=1
+	SETLOCAL
+	CALL :SIEVE_NEW %NMAX%
+	CALL :SIEVE_RUNSIEVE
+	CALL :SIEVE_COUNTPRIMES
+	CALL :SIEVE_VALIDATE
+	ENDLOCAL & SET "COUNT=%sieve_count%" & SET "VALID=%sieve_valid%"
+	>&2 <NUL SET /P "=."
+	IF NOT "%VALID%"=="true" SET "ALLVALID=%VALID%"
+	CALL :GETELAPSED TIMESTART ELAPSED
+	IF %ELAPSED% LSS 500 GOTO BENCHMARK_LOOP
+	>&2 ECHO.
+
+	CALL :PRINTRESULTS
 EXIT /B
 
 :SETINPUT
-	REM Set the default value of NMAX to 1000
+	REM Default NMAX is 10000 because batch is too slow for 1000000
 	SET NMAX=10000
-	REM Check if the first command-line argument is provided
 	IF "%1" NEQ "" (
 		REM Check if the argument is a positive integer
 		IF 1%1 EQU +1%1 (
-			REM Set NMAX to the value of the first command-line argument
 			SET NMAX=%1
 		) ELSE (
-		ECHO [ERROR] CMD argument %1 is invalid
-		ECHO [RECOVERING] Using default %NMAX%
+			>&2 ECHO [ERROR] CMD argument %1 is invalid
+			>&2 ECHO [RECOVERING] Using default !NMAX!
 		)
 	)
-	REM                 Use this ruler to verify 80 character max line width
-	REM          10        20        30        40        50        60        70        80
-	REM  12345678901234567890123456789012345678901234567890123456789012345678901234567890
-	Echo  ==============================================================================
-	Echo  ^|                     BATCH CMD SIEVE OF ERATOSTHENES                        ^|
-	Echo  ^|                                  WITH                                      ^|
-	Echo  ^|                  SQUAREROOT AND COMPOSITE OPTIMIZATIONS                    ^|
-	Echo  ==============================================================================
-	ECHO.
 EXIT /B
 
-:SIEVE
-   ECHO %0 OF ERATOSTHENES RUNNING...
-   CALL :BANNERCHAR ..PLEASE.. 2>NUL
-   CALL :BANNERCHAR ..STAND... 2>NUL
-   CALL :BANNERCHAR ....BY.... 2>NUL
-   ECHO 	GENERATING COMPOSITES
-   FOR /L %%L IN (3,2,!isqrt!) DO (
-      <NUL SET /P "_PRINT=%%L "
-	  IF NOT DEFINED %%L (
-         SET /A START=%%L * %%L
-         SET /A STEP=%%L * 2
-         FOR /L %%V IN (!START!,!STEP!,!NMAX!) DO SET %%V=~
-       )
-    )
-	ECHO.
+REM ===========================================================================
+REM  Sieve "class". Odd-only 1-bit array sized at runtime from the limit:
+REM  bit i represents 2*i+1 and lives in word w(i>>5) at bit (i&31).
+REM  0 = prime, 1 = composite. cmd gets slower with every environment
+REM  variable, so packing 32 flags per variable is the main speedup.
+REM  The word array (w*) and scratch (t) keep one-letter names because cmd
+REM  parses and looks them up on every mark.
+REM ===========================================================================
+
+:SIEVE_NEW
+	SET /A "sieve_size=%~1, sieve_maxIdx=(sieve_size-1)/2, sieve_lastWord=sieve_maxIdx>>5"
+	FOR /L %%W IN (0,1,%sieve_lastWord%) DO SET "w%%W=0"
 EXIT /B
 
-:LISTPRIMES
-   ECHO %0
-   <NUL SET /P "_PRINT=2 "
-   REM ECHO 2
-   FOR /L %%L IN (3,2,!NMAX!) DO (
-      IF NOT DEFINED %%L (
-		<NUL SET /P "_PRINT=%%L "
-		REM ECHO %%L
+:SIEVE_RUNSIEVE
+	CALL :ISQRT %sieve_size% sieve_q
+	SET /A "sieve_lastIdx=(sieve_q-1)/2"
+	FOR /L %%I IN (1,1,%sieve_lastIdx%) DO (
+		SET /A "t=%%I>>5"
+		SET /A "t=(w!t!>>(%%I&31))&1"
+		IF !t! EQU 0 (
+			REM factor f=2i+1; clear f*f, f*f+2f, ... which is index step f
+			SET /A "sieve_f=2*%%I+1, sieve_start=(sieve_f*sieve_f)/2"
+			IF !sieve_f! LSS 32 (
+				REM Several multiples per word: walk word by word so the word name
+				REM is a FOR variable, then one SET /A per multiple. r is the
+				REM first multiple's bit within the current word. Measured fastest
+				REM below 32; for larger f most words hold no multiple.
+				SET /A "sieve_k=sieve_start>>5, r=sieve_start&31"
+				FOR /L %%K IN (!sieve_k!,1,%sieve_lastWord%) DO (
+					FOR /L %%B IN (!r!,!sieve_f!,31) DO SET /A "w%%K|=1<<%%B"
+					SET /A "r=((r-32)%% sieve_f+sieve_f)%% sieve_f"
+				)
+			) ELSE (
+				FOR /L %%M IN (!sieve_start!,!sieve_f!,%sieve_maxIdx%) DO SET /A "t=%%M>>5" & SET /A "w!t!|=1<<(%%M&31)"
+			)
 		)
-    )
-	ECHO.
+	)
 EXIT /B
 
-:COUNTPRIMES
-   ECHO %0
-   SET COMPCOUNT=0
-   FOR /F "TOKENS=*" %%A IN ('SET ^| FINDSTR /R "=~" ^| FIND /V /C ""') DO SET COMPCOUNT=%%A
-   SET /A PRIMECOUNT=((%NMAX% + 1) / 2) - %COMPCOUNT%
-   ECHO 	PRIMECOUNT=!PRIMECOUNT!
-EXIT /B
-   
-:FLOORINTSQRT
- ECHO %0 RUNNING SQRT OPTIMIZATION
- SET "arg1=, init=, iter=" 
- SET /A arg1=%1
- IF %arg1% GTR 0 (
-   SET /A "init=%arg1%/(11*1024)+40"
-   SET /A "iter=!init!"
-   FOR /L %%I in (1,1,5) DO (
-     set /A "iter=(%arg1%/!iter!+!iter!)/2"
-     IF %%I EQU 5 (
-       SET /A isqrt=!iter!
-       SET /A sqr=!isqrt!*!isqrt!
-       IF !sqr! GTR %arg1% (
-         SET /A isqrt-=1
-         SET /A sqr=!isqrt!*!isqrt!
-       )
-       ECHO 	FLOORISQRT(%arg1%^)=!isqrt!
-     )
-   )
- )
+:SIEVE_COUNTPRIMES
+	REM Popcount each word to get the odd composites; primes are what's left
+	REM of the odd numbers 3..size, plus 2. Index 0 (the number 1) is never set.
+	SET "sieve_count=0"
+	IF %sieve_size% LSS 2 EXIT /B
+	SET "sieve_composites=0"
+	REM Word-wise marking can set bits past maxIdx in the last word; drop them
+	SET /A "w%sieve_lastWord%&=(2<<(sieve_maxIdx&31))-1"
+	FOR /L %%W IN (0,1,%sieve_lastWord%) DO (
+		SET /A "sieve_x=w%%W, sieve_x-=(sieve_x>>1)&0x55555555, sieve_x=(sieve_x&0x33333333)+((sieve_x>>2)&0x33333333), sieve_x=(sieve_x+(sieve_x>>4))&0x0F0F0F0F, sieve_composites+=(sieve_x*0x01010101)>>24"
+	)
+	SET /A "sieve_count=1+sieve_maxIdx-sieve_composites"
 EXIT /B
 
-:CONVERTTIMESECONDS
- SET T=!%1!
- SET T=!T::0=:!
- SET T=!T:.0=.!
-   FOR /F "TOKENS=1-4 DELIMS=:." %%W IN ("!T!") DO (
-     SET /A %2=%%W * 360000 + %%X * 6000 + %%Y * 100 + %%Z
-   )
+:SIEVE_VALIDATE
+	REM Known prime counts used only to verify the result, as in the reference
+	SET "sieve_valid=unknown"
+	FOR %%P IN (10:4 100:25 1000:168 10000:1229 100000:9592 1000000:78498 10000000:664579) DO (
+		FOR /F "tokens=1,2 delims=:" %%A IN ("%%P") DO (
+			IF "%%A"=="%sieve_size%" (
+				IF "%%B"=="!sieve_count!" (SET "sieve_valid=true") ELSE (SET "sieve_valid=false")
+			)
+		)
+	)
+EXIT /B
+
+REM ===========================================================================
+REM  Helpers
+REM ===========================================================================
+
+:ISQRT
+	REM Integer Newton's method: %2 = floor(sqrt(%1))
+	SETLOCAL
+	SET /A "n=%~1, x=n, y=(x+1)/2"
+:ISQRT_LOOP
+	IF !y! LSS !x! (
+		SET /A "x=y, y=(x+n/x)/2"
+		GOTO ISQRT_LOOP
+	)
+	ENDLOCAL & SET "%~2=%x%"
+EXIT /B
+
+:GETTIME_CS
+	REM %1 = current time of day in centiseconds. Handles a space-padded hour,
+	REM leading zeros (octal) and either "." or "," as the decimal separator.
+	SET "_t=%TIME: =0%"
+	FOR /F "tokens=1-4 delims=:.," %%A IN ("%_t%") DO (
+		SET /A "%~1=((100%%A %% 100 * 60 + 100%%B %% 100) * 60 + 100%%C %% 100) * 100 + 100%%D %% 100"
+	)
 EXIT /B
 
 :GETELAPSED
- ECHO %0
-   SET /A ELAPSED=TIMEFINISHSEC - TIMESTARTSEC
-   SET /A WHOLES=ELAPSED / 100
-   SET MILLIS=!ELAPSED:~-2!0
-   IF "!ELAPSED!" LSS "0" (
-      SET /A ELAPSED=ELAPSED + (24 * 360000)
-      )
-   ECHO 	TimeElapsed=!WHOLES!.!MILLIS! Seconds
+	REM %2 = centiseconds since the time stored in variable %1, midnight-safe
+	CALL :GETTIME_CS _now
+	SET /A "%~2=_now - %~1"
+	IF !%~2! LSS 0 SET /A "%~2+=8640000"
 EXIT /B
 
-:BANNERCHAR
-SETLOCAL
-IF [%1] NEQ [] goto s_start
-Echo   Syntax  
-Echo       BANNER string
-Echo           Where string is the text or numbers to be displayed
-Echo.
+:FORMATSECONDS
+	REM %2 = centiseconds %1 formatted as seconds with two decimals
+	SET /A "_s=%~1 / 100, _c=%~1 %% 100"
+	SET "_c=0%_c%"
+	SET "%~2=%_s%.%_c:~-2%"
 EXIT /B
-   :s_start
-      SET _length=0
-      SET _sentence=%*
 
-      REM Get the length of the sentence
-      SET _substring=%_sentence%
-   :s_loop
-      IF not defined _substring GOTO :s_result
-      REM remove the first char from _substring (until it is null)
-      SET _substring=%_substring:~1%
-      SET /A _length+=1
-      GOTO s_loop
-      
-   :s_result
-      SET /A _length-=1
-
-      REM Truncate text to fit the window size
-      REM assuming average char is 6 digits wide
-      for /f "tokens=2" %%G in ('mode ^|find "Columns"') do set/a _window=%%G/6
-      IF %_length% GTR %_window% set _length=%_window% 
-
-      REM Step through each digit of the sentence and store in a set of variables
-      FOR /L %%G IN (0,1,%_length%) DO call :s_build %%G
-	  
-		REM Now Echo all the variables
-		ECHO.
-		ECHO.%_1%
-		ECHO.%_2%
-		ECHO.%_3%
-		ECHO.%_4%
-		ECHO.%_5%
-		ECHO.%_6%
-		ECHO.%_7%
-		REM ECHO.
-   EXIT /B
-
-   :s_build
-      REM get the next character
-      CALL SET _digit=%%_sentence:~%1,1%%%
-      REM Add the graphics for this digit to the variables
-      IF "%_digit%"==" " (CALL :s_space) ELSE (CALL :s_%_digit%)
-   EXIT /B
-   
-   REM  Pad digits to -->
-   :s_0
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% #  #)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_1
-   REM  Pad digits to -->
-      (SET _1=%_1%  ## )
-      (SET _2=%_2%   # )
-      (SET _3=%_3%   # )
-      (SET _4=%_4%   # )
-      (SET _5=%_5%   # )
-      (SET _6=%_6%   # )
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_2
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3%    #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_3
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2%    #)
-      (SET _3=%_3%    #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5%    #)
-      (SET _6=%_6%    #)
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_4
-   REM  Pad digits to -->
-      (SET _1=%_1% #  #)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5%    #)
-      (SET _6=%_6%    #)
-      (SET _7=%_7%    #)
-   EXIT /B
-   
-   :s_5
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4% ####)
-      (SET _5=%_5%    #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_6
-   REM  Pad digits to -->
-      (SET _1=%_1% ##  )
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4% ####)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_7
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3%    #)
-      (SET _4=%_4%   ##)
-      (SET _5=%_5%   # )
-      (SET _6=%_6%   # )
-      (SET _7=%_7%   # )
-   EXIT /B
-   
-   :s_8
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_9
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5%    #)
-      (SET _6=%_6%    #)
-      (SET _7=%_7%    #)
-   EXIT /B
-   
-   :s_-
-   REM  Pad digits to -->
-      (SET _1=%_1%     )
-      (SET _2=%_2%     )
-      (SET _3=%_3%     )
-      (SET _4=%_4% ####)
-      (SET _5=%_5%     )
-      (SET _6=%_6%     )
-      (SET _7=%_7%     )
-   EXIT /B
-   
-   :s_.
-   REM  Pad digits to -->
-      (SET _1=%_1%     )
-      (SET _2=%_2%     )
-      (SET _3=%_3%     )
-      (SET _4=%_4%     )
-      (SET _5=%_5%     )
-      (SET _6=%_6%     )
-      (SET _7=%_7%  #  )
-   EXIT /B
-   
-   :s_a
-   REM  Pad digits to -->
-      (SET _1=%_1%  ## )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% #  #)
-   EXIT /B
-   
-   :s_b
-   REM  Pad digits to -->
-      (SET _1=%_1% ### )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ### )
-   EXIT /B
-   
-   :s_c
-   REM  Pad digits to -->
-      (SET _1=%_1%  ## )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #   )
-      (SET _4=%_4% #   )
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #  #)
-      (SET _7=%_7%  ## )
-   EXIT /B
-   
-   :s_d
-   REM  Pad digits to -->
-      (SET _1=%_1% ### )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% #  #)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% ### )
-   EXIT /B
-   
-   :s_e
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4% ### )
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #   )
-      (SET _7=%_7% ####)
-   EXIT /B
-   
-   :s_f
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4% ### )
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #   )
-      (SET _7=%_7% #   )
-   EXIT /B
-
-   :s_g
-   REM  Pad digits to -->
-      (SET _1=%_1%  ## )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #   )
-      (SET _4=%_4% #   )
-      (SET _5=%_5% # ##)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7%  ## )
-   EXIT /B
-
-   :s_h
-   REM  Pad digits to -->
-      (SET _1=%_1% #  #)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ####)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% #  #)
-   EXIT /B
-
-   :s_i
-   REM  Pad digits to -->
-      (SET _1=%_1%  # )
-      (SET _2=%_2%  # )
-      (SET _3=%_3%  # )
-      (SET _4=%_4%  # )
-      (SET _5=%_5%  # )
-      (SET _6=%_6%  # )
-      (SET _7=%_7%  # )
-   EXIT /B
-
-   :s_j
-   REM  Pad digits to -->
-      (SET _1=%_1% ####)
-      (SET _2=%_2%   # )
-      (SET _3=%_3%   # )
-      (SET _4=%_4%   # )
-      (SET _5=%_5%   # )
-      (SET _6=%_6%   # )
-      (SET _7=%_7% ##  )
-   EXIT /B
-
-   :s_k
-   REM  Pad digits to -->
-      (SET _1=%_1% #   )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% # # )
-      (SET _4=%_4% ##  )
-      (SET _5=%_5% ##  )
-      (SET _6=%_6% # # )
-      (SET _7=%_7% #  #)
-   EXIT /B
-
-   :s_l
-   REM  Pad digits to -->
-      (SET _1=%_1% #   )
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4% #   )
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #   )
-      (SET _7=%_7% ####)
-   EXIT /B
-
-   :s_m
-   REM  Pad digits to --->
-      (SET _1=%_1% #   #)
-      (SET _2=%_2% ## ##)
-      (SET _3=%_3% # # #)
-      (SET _4=%_4% # # #)
-      (SET _5=%_5% #   #)
-      (SET _6=%_6% #   #)
-      (SET _7=%_7% #   #)
-   EXIT /B
-
-   :s_n
-   REM  Pad digits to --->
-      (SET _1=%_1% #   #)
-      (SET _2=%_2% ##  #)
-      (SET _3=%_3% ##  #)
-      (SET _4=%_4% # # #)
-      (SET _5=%_5% #  ##)
-      (SET _6=%_6% #  ##)
-      (SET _7=%_7% #   #)
-   EXIT /B
-
-   :s_o
-   REM  Pad digits to -->
-      (SET _1=%_1%  ## )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% #  #)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7%  ## )
-   EXIT /B
-
-   :s_p
-   REM  Pad digits to -->
-      (SET _1=%_1% ### )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ### )
-      (SET _5=%_5% #   )
-      (SET _6=%_6% #   )
-      (SET _7=%_7% #   )
-   EXIT /B
-
-   :s_q
-   REM  Pad digits to -->
-      (SET _1=%_1%  ## )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% #  #)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% # ##)
-      (SET _7=%_7%  # #)
-   EXIT /B
-
-   :s_r
-   REM  Pad digits to -->
-      (SET _1=%_1% ### )
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% ### )
-      (SET _5=%_5% # # )
-      (SET _6=%_6% #  #)
-      (SET _7=%_7% #  #)
-   EXIT /B
-
-   :s_s
-   REM  Pad digits to -->
-      (SET _1=%_1%  ###)
-      (SET _2=%_2% #   )
-      (SET _3=%_3% #   )
-      (SET _4=%_4%  ## )
-      (SET _5=%_5%    #)
-      (SET _6=%_6%    #)
-      (SET _7=%_7% ### )
-   EXIT /B
-
-   :s_t
-   REM  Pad digits to -->
-      (SET _1=%_1% ###)
-      (SET _2=%_2%  # )
-      (SET _3=%_3%  # )
-      (SET _4=%_4%  # )
-      (SET _5=%_5%  # )
-      (SET _6=%_6%  # )
-      (SET _7=%_7%  # )
-   EXIT /B
-
-   :s_u
-   REM  Pad digits to -->
-      (SET _1=%_1% #  #)
-      (SET _2=%_2% #  #)
-      (SET _3=%_3% #  #)
-      (SET _4=%_4% #  #)
-      (SET _5=%_5% #  #)
-      (SET _6=%_6% #  #)
-      (SET _7=%_7%  ## )
-   EXIT /B
-
-   :s_v
-   REM  Pad digits to --->
-      (SET _1=%_1% #   #)
-      (SET _2=%_2% #   #)
-      (SET _3=%_3% #   #)
-      (SET _4=%_4% #   #)
-      (SET _5=%_5% #   #)
-      (SET _6=%_6%  # # )
-      (SET _7=%_7%   #  )
-   EXIT /B
-
-   :s_w
-   REM  Pad digits to ----->
-      (SET _1=%_1% #  #  #)
-      (SET _2=%_2% #  #  #)
-      (SET _3=%_3% #  #  #)
-      (SET _4=%_4% #  #  #)
-      (SET _5=%_5% #  #  #)
-      (SET _6=%_6% #  #  #)
-      (SET _7=%_7%  ## ## )
-   EXIT /B
-
-   :s_x
-   REM  Pad digits to -->
-      (SET _1=%_1%      )
-      (SET _2=%_2% #   #)
-      (SET _3=%_3%  # # )
-      (SET _4=%_4%   #  )
-      (SET _5=%_5%   #  )
-      (SET _6=%_6%  # # )
-      (SET _7=%_7% #   #)
-   EXIT /B
-
-   :s_y
-   REM  Pad digits to --->
-      (SET _1=%_1% #   #)
-      (SET _2=%_2%  # # )
-      (SET _3=%_3%   #  )
-      (SET _4=%_4%   #  )
-      (SET _5=%_5%   #  )
-      (SET _6=%_6%   #  )
-      (SET _7=%_7%   #  )
-   EXIT /B
-
-   :s_z
-   REM  Pad digits to --->
-      (SET _1=%_1% #####)
-      (SET _2=%_2%     #)
-      (SET _3=%_3%    # )
-      (SET _4=%_4%   #  )
-      (SET _5=%_5%  #   )
-      (SET _6=%_6% #    )
-      (SET _7=%_7% #####)
-   EXIT /B
-
-   :s_space
-   REM  Pad digits to --->
-      (SET _1=%_1%      )
-      (SET _2=%_2%      )
-      (SET _3=%_3%      )
-      (SET _4=%_4%      )
-      (SET _5=%_5%      )
-      (SET _6=%_6%      )
-      (SET _7=%_7%      )
-   EXIT /B
+:PRINTRESULTS
+	CALL :FORMATSECONDS %ELAPSED% DURATION
+	SET /A "_avg=ELAPSED / PASSES"
+	CALL :FORMATSECONDS %_avg% AVERAGE
+	ECHO Passes: %PASSES%, Time: %DURATION%, Avg: %AVERAGE%, Limit: %NMAX%, Count: %COUNT%, Valid: %ALLVALID%
+	ECHO.
+	ECHO ballganda_batch;%PASSES%;%DURATION%;1;algorithm=base,faithful=no,bits=1
 EXIT /B
